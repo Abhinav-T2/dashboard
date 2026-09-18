@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Open PRs Dashboard</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --panel: #ffffff;
+      --panel-2: #f4f6f8;
+      --border: #d0d7de;
+      --text: #1f2328;
+      --muted: #656d76;
+      --accent: #0969da;
+      --green: #1a7f37;
+      --amber: #9a6700;
+      --red: #cf222e;
+      --draft: #59636e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      padding: 28px 32px 16px;
+      border-bottom: 1px solid var(--border);
+      background: #ffffff;
+    }
+    h1 {
+      margin: 0 0 6px;
+      font-size: 22px;
+      font-weight: 650;
+    }
+    .sub {
+      color: var(--muted);
+      font-size: 13px;
+      margin: 0 0 18px;
+      max-width: 820px;
+      line-height: 1.45;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: end;
+    }
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    input, select, button {
+      font: inherit;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      padding: 9px 12px;
+    }
+    input { min-width: 220px; }
+    button {
+      background: var(--accent);
+      color: #ffffff;
+      border: none;
+      font-weight: 650;
+      cursor: pointer;
+      padding: 10px 16px;
+    }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+    button.secondary {
+      background: var(--panel-2);
+      color: var(--text);
+    }
+    label.check {
+      flex-direction: row;
+      align-items: center;
+      gap: 8px;
+      padding-bottom: 10px;
+    }
+    label.check input {
+      min-width: 0;
+      width: 16px;
+      height: 16px;
+      padding: 0;
+    }
+    main { padding: 20px 32px 48px; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .stat {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+    }
+    .stat .n { font-size: 26px; font-weight: 700; }
+    .stat .l { color: var(--muted); font-size: 12px; margin-top: 4px; }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .toolbar input, .toolbar select { min-width: 160px; }
+    .msg {
+      padding: 14px 16px;
+      border-radius: 10px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .msg.error { border-color: var(--red); color: var(--red); background: #ffebe9; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    th, td {
+      text-align: left;
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      vertical-align: top;
+    }
+    th {
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      background: var(--panel-2);
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f6f8fa; }
+    tr.age-fresh td { background: #dafbe1; }
+    tr.age-warn td { background: #fff8c5; }
+    tr.age-stale td { background: #ffebe9; }
+    tr.age-fresh:hover td { background: #c8f0d2; }
+    tr.age-warn:hover td { background: #fff3a3; }
+    tr.age-stale:hover td { background: #ffd8d3; }
+    .opened {
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .opened.age-fresh { color: var(--green); }
+    .opened.age-warn { color: var(--amber); }
+    .opened.age-stale { color: var(--red); }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      font-size: 12px;
+      color: var(--muted);
+      margin: 0 0 14px;
+    }
+    .legend span::before {
+      content: "";
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      margin-right: 6px;
+      vertical-align: -1px;
+    }
+    .legend .l-fresh::before { background: var(--green); }
+    .legend .l-warn::before { background: var(--amber); }
+    .legend .l-stale::before { background: var(--red); }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .title { font-weight: 600; color: var(--text); }
+    .meta { color: var(--muted); font-size: 12px; margin-top: 3px; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      background: var(--panel-2);
+      color: var(--muted);
+      margin-right: 4px;
+    }
+    .badge.open { background: #dafbe1; color: var(--green); }
+    .badge.draft { background: #eaeef2; color: var(--draft); }
+    .author {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .author img {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+    }
+    footer {
+      color: var(--muted);
+      font-size: 12px;
+      padding: 0 32px 24px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Organization open PRs</h1>
+    <p class="sub">
+      Open this file in a browser — no server needed. For a private org, paste a
+      <strong>classic</strong> personal access token with <code>repo</code> and
+      <code>read:org</code>. If the org uses SAML SSO, authorize that token for the org
+      on GitHub. The token stays in this browser only.
+    </p>
+    <div class="controls">
+      <label>Organization
+        <input id="org" placeholder="github-org" autocomplete="off" />
+      </label>
+      <label>GitHub token (optional)
+        <input id="token" type="password" placeholder="ghp_…" autocomplete="off" />
+      </label>
+      <label class="check">
+        <input id="skipTest" type="checkbox" checked />
+        Do not query filtered repos (-test, -template, -sandbox, -candescent, -55, -055, digital-banking, plus named skips)
+      </label>
+      <button id="load">Load open PRs</button>
+      <button id="clearToken" class="secondary" type="button">Forget token</button>
+    </div>
+  </header>
+  <main>
+    <div id="stats" class="stats" hidden></div>
+    <div class="toolbar" id="toolbar" hidden>
+      <input id="q" placeholder="Filter by title, repo, author…" />
+      <select id="repo"></select>
+      <select id="author"></select>
+    </div>
+    <div class="legend" id="legend" hidden>
+      <span class="l-fresh">Updated ≤ 1 day</span>
+      <span class="l-warn">Updated 1–3 days</span>
+      <span class="l-stale">Updated ≥ 3 days</span>
+    </div>
+    <div id="status" class="msg">Enter an organization and click Load open PRs.</div>
+    <div id="tableWrap" hidden></div>
+  </main>
+  <footer>
+    Lists org repos, then fetches open PRs only for remaining repos. When the skip option is on, it does not query names that contain -test, -template, -sandbox, -candescent, -55, -055, or digital-banking, or the repos dbk-devex-repo-workflows and devex-component-agent-policy. A token is required for private organizations.
+  </footer>
+  <script>
+    const STORAGE_ORG = "org-open-prs.org";
+    const STORAGE_TOKEN = "org-open-prs.token";
+    const orgEl = document.getElementById("org");
+    const tokenEl = document.getElementById("token");
+    const skipTestEl = document.getElementById("skipTest");
+    const loadBtn = document.getElementById("load");
+    const clearBtn = document.getElementById("clearToken");
+    const statsEl = document.getElementById("stats");
+    const toolbarEl = document.getElementById("toolbar");
+    const legendEl = document.getElementById("legend");
+    const statusEl = document.getElementById("status");
+    const tableWrap = document.getElementById("tableWrap");
+    const qEl = document.getElementById("q");
+    const repoEl = document.getElementById("repo");
+    const authorEl = document.getElementById("author");
+
+    let allItems = [];
+
+    const params = new URLSearchParams(location.search);
+    orgEl.value = params.get("org") || localStorage.getItem(STORAGE_ORG) || "";
+    tokenEl.value = localStorage.getItem(STORAGE_TOKEN) || "";
+    const savedSkip = localStorage.getItem("org-open-prs.skipTest");
+    if (savedSkip !== null) skipTestEl.checked = savedSkip !== "false";
+
+    function shouldSkipRepo(fullName) {
+      const name = String(fullName || "").split("/").pop().toLowerCase();
+      if (name.includes("-test")) return true;
+      if (name.includes("-template")) return true;
+      if (name.includes("-sandbox")) return true;
+      if (name.includes("-candescent")) return true;
+      if (name.includes("-55")) return true;
+      if (name.includes("-055")) return true;
+      if (name.includes("digital-banking")) return true;
+      if (name === "devex-component-agent-policy") return true;
+      if (name === "dbk-devex-repo-workflows") return true;
+      return false;
+    }
+
+    function excludeTestRepos() {
+      return skipTestEl.checked;
+    }
+
+    function setStatus(text, isError) {
+      statusEl.hidden = !text;
+      statusEl.textContent = text || "";
+      statusEl.classList.toggle("error", !!isError);
+    }
+
+    function headers() {
+      const h = {
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28"
+      };
+      const token = tokenEl.value.trim();
+      if (token) h.Authorization = "Bearer " + token;
+      return h;
+    }
+
+    function formatApiError(status, body) {
+      const details = (body.errors || [])
+        .map((e) => e.message || e.code)
+        .filter(Boolean)
+        .join(" ");
+      let msg = body.message || ("GitHub API error " + status);
+      if (details) msg += " — " + details;
+      if (status === 401) {
+        msg += " The token is missing or invalid.";
+      } else if (status === 403 && /saml|sso/i.test(msg)) {
+        msg += " Open GitHub → Settings → Personal access tokens and authorize SSO for this org.";
+      } else if (status === 404) {
+        msg += " Check the organization name, or use a token that can see this private org.";
+      } else if (status === 422) {
+        msg += " GitHub rejected this request. Check the org name and token scopes.";
+      }
+      return msg;
+    }
+
+    async function githubJson(path) {
+      const res = await fetch("https://api.github.com" + path, { headers: headers() });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const err = new Error(formatApiError(res.status, body));
+        err.status = res.status;
+        err.body = body;
+        throw err;
+      }
+      return body;
+    }
+
+    async function githubPages(path) {
+      const items = [];
+      let page = 1;
+      while (page <= 30) {
+        const sep = path.includes("?") ? "&" : "?";
+        const batch = await githubJson(path + sep + "per_page=100&page=" + page);
+        if (!Array.isArray(batch) || batch.length === 0) break;
+        items.push.apply(items, batch);
+        if (batch.length < 100) break;
+        page += 1;
+      }
+      return items;
+    }
+
+    async function mapPool(list, limit, fn) {
+      const out = new Array(list.length);
+      let next = 0;
+      async function worker() {
+        while (next < list.length) {
+          const i = next++;
+          out[i] = await fn(list[i], i);
+        }
+      }
+      const n = Math.min(limit, Math.max(list.length, 1));
+      await Promise.all(Array.from({ length: n }, worker));
+      return out;
+    }
+
+    function repoName(item) {
+      if (item.repo_full_name) return item.repo_full_name;
+      const url = item.repository_url || "";
+      const parts = url.split("/");
+      return parts.slice(-2).join("/");
+    }
+
+    function ageClass(iso) {
+      const days = (Date.now() - new Date(iso).getTime()) / 86400000;
+      if (days <= 1) return "age-fresh";
+      if (days < 3) return "age-warn";
+      return "age-stale";
+    }
+
+    function timeAgo(iso) {
+      const then = new Date(iso).getTime();
+      const sec = Math.max(1, Math.floor((Date.now() - then) / 1000));
+      const units = [
+        [31536000, "y"],
+        [2592000, "mo"],
+        [86400, "d"],
+        [3600, "h"],
+        [60, "m"]
+      ];
+      for (const [s, label] of units) {
+        if (sec >= s) return Math.floor(sec / s) + label + " ago";
+      }
+      return sec + "s ago";
+    }
+
+    function normalizePull(pr, fullName) {
+      return {
+        title: pr.title,
+        number: pr.number,
+        html_url: pr.html_url,
+        user: pr.user,
+        draft: !!pr.draft,
+        labels: pr.labels || [],
+        created_at: pr.created_at,
+        updated_at: pr.updated_at,
+        repo_full_name: fullName
+      };
+    }
+
+    async function detectOwner(login) {
+      try {
+        await githubJson("/orgs/" + encodeURIComponent(login));
+        return "org";
+      } catch (err) {
+        if (err.status !== 404) throw err;
+      }
+      try {
+        await githubJson("/users/" + encodeURIComponent(login));
+        return "user";
+      } catch (err) {
+        if (err.status === 404) {
+          throw new Error(
+            "GitHub could not find \"" + login + "\" as an organization or user. " +
+            "For a private org you must paste a token that can see it."
+          );
+        }
+        throw err;
+      }
+    }
+
+    async function fetchRepos(login, kind) {
+      if (kind === "org") {
+        return githubPages("/orgs/" + encodeURIComponent(login) + "/repos?type=all&sort=updated");
+      }
+      return githubPages("/users/" + encodeURIComponent(login) + "/repos?type=all&sort=updated");
+    }
+
+    async function fetchPullsForRepo(fullName) {
+      try {
+        const pulls = await githubPages("/repos/" + fullName + "/pulls?state=open&sort=updated");
+        return pulls.map((pr) => normalizePull(pr, fullName));
+      } catch (err) {
+        if (err.status === 403 || err.status === 404) return [];
+        throw err;
+      }
+    }
+
+    async function fetchAllOpenPrs(login) {
+      const kind = await detectOwner(login);
+      setStatus("Found " + kind + " \"" + login + "\". Listing repositories…");
+      const allRepos = await fetchRepos(login, kind);
+      let skipped = 0;
+      const repos = allRepos.filter((r) => {
+        if (r.archived) {
+          skipped += 1;
+          return false;
+        }
+        if (excludeTestRepos() && shouldSkipRepo(r.full_name || r.name)) {
+          skipped += 1;
+          return false;
+        }
+        return true;
+      });
+      if (!repos.length) {
+        throw new Error(
+          "No repositories left to query for \"" + login + "\" after filters. " +
+          "If this looks wrong, uncheck the skip-repos filter or use a token that can see the org."
+        );
+      }
+      setStatus(
+        "Querying open PRs in " + repos.length + " repositories" +
+        (skipped ? " (skipped " + skipped + " filtered repos)" : "") + "…"
+      );
+      const nested = await mapPool(repos, 6, (repo) => fetchPullsForRepo(repo.full_name));
+      const items = nested.flat().sort(function (a, b) {
+        return new Date(b.updated_at) - new Date(a.updated_at);
+      });
+      return { items, queriedRepos: repos.length, skippedRepos: skipped };
+    }
+
+    function unique(values) {
+      return [...new Set(values)].sort((a, b) => a.localeCompare(b));
+    }
+
+    function fillSelect(select, values, allLabel) {
+      select.innerHTML = "";
+      const all = document.createElement("option");
+      all.value = "";
+      all.textContent = allLabel;
+      select.appendChild(all);
+      values.forEach((v) => {
+        const opt = document.createElement("option");
+        opt.value = v;
+        opt.textContent = v;
+        select.appendChild(opt);
+      });
+    }
+
+    function renderStats(items) {
+      const repos = unique(items.map(repoName));
+      const authors = unique(items.map((i) => (i.user && i.user.login) || "unknown"));
+      const drafts = items.filter((i) => i.draft || (i.pull_request && i.draft)).length;
+      statsEl.hidden = false;
+      statsEl.innerHTML = [
+        ["Open PRs", items.length],
+        ["Repositories", repos.length],
+        ["Authors", authors.length],
+        ["Drafts", drafts]
+      ].map(([l, n]) => (
+        '<div class="stat"><div class="n">' + n + '</div><div class="l">' + l + "</div></div>"
+      )).join("");
+    }
+
+    function filtered() {
+      const q = qEl.value.trim().toLowerCase();
+      const repo = repoEl.value;
+      const author = authorEl.value;
+      return allItems.filter((item) => {
+        const r = repoName(item);
+        const a = (item.user && item.user.login) || "";
+        if (repo && r !== repo) return false;
+        if (author && a !== author) return false;
+        if (!q) return true;
+        const hay = [item.title, r, a, "#" + item.number].join(" ").toLowerCase();
+        return hay.includes(q);
+      });
+    }
+
+    function renderTable() {
+      const items = filtered();
+      if (!items.length) {
+        tableWrap.hidden = false;
+        tableWrap.innerHTML = '<div class="msg">No pull requests match this filter.</div>';
+        return;
+      }
+      const rows = items.map((item) => {
+        const repo = repoName(item);
+        const login = (item.user && item.user.login) || "unknown";
+        const avatar = (item.user && item.user.avatar_url) || "";
+        const draft = !!item.draft;
+        const labels = (item.labels || []).slice(0, 4).map((l) =>
+          '<span class="badge">' + escapeHtml(l.name) + "</span>"
+        ).join("");
+        const age = ageClass(item.updated_at);
+        return (
+          "<tr class=\"" + age + "\">" +
+            "<td><a class=\"title\" href=\"" + item.html_url + "\" target=\"_blank\" rel=\"noopener\">" +
+              escapeHtml(item.title) + "</a>" +
+              "<div class=\"meta\">#" + item.number + " · opened " + timeAgo(item.created_at) + "</div></td>" +
+            "<td><a href=\"https://github.com/" + repo + "\" target=\"_blank\" rel=\"noopener\">" + escapeHtml(repo) + "</a></td>" +
+            "<td><div class=\"author\">" +
+              (avatar ? "<img alt=\"\" src=\"" + avatar + "\" />" : "") +
+              "<a href=\"https://github.com/" + login + "\" target=\"_blank\" rel=\"noopener\">" + escapeHtml(login) + "</a>" +
+            "</div></td>" +
+            "<td><span class=\"badge " + (draft ? "draft" : "open") + "\">" + (draft ? "Draft" : "Open") + "</span>" + labels + "</td>" +
+            "<td class=\"opened " + age + "\">" + timeAgo(item.updated_at) + "</td>" +
+          "</tr>"
+        );
+      }).join("");
+      tableWrap.hidden = false;
+      tableWrap.innerHTML =
+        "<table><thead><tr>" +
+        "<th>Pull request</th><th>Repository</th><th>Author</th><th>Status</th><th>Last updated</th>" +
+        "</tr></thead><tbody>" + rows + "</tbody></table>";
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    async function load() {
+      const org = orgEl.value.trim().replace(/^@/, "");
+      if (!org) {
+        setStatus("Enter a GitHub organization name.", true);
+        return;
+      }
+      localStorage.setItem(STORAGE_ORG, org);
+      localStorage.setItem("org-open-prs.skipTest", skipTestEl.checked ? "true" : "false");
+      if (tokenEl.value.trim()) localStorage.setItem(STORAGE_TOKEN, tokenEl.value.trim());
+      loadBtn.disabled = true;
+      setStatus("Loading open pull requests for " + org + "…");
+      statsEl.hidden = true;
+      toolbarEl.hidden = true;
+      legendEl.hidden = true;
+      tableWrap.hidden = true;
+      try {
+        const { items, queriedRepos, skippedRepos } = await fetchAllOpenPrs(org);
+        allItems = items;
+        if (!items.length) {
+          setStatus("No open pull requests found in " + queriedRepos + " queried repos for " + org + ".");
+          return;
+        }
+        fillSelect(repoEl, unique(items.map(repoName)), "All repositories");
+        fillSelect(authorEl, unique(items.map((i) => (i.user && i.user.login) || "unknown")), "All authors");
+        qEl.value = "";
+        renderStats(items);
+        toolbarEl.hidden = false;
+        legendEl.hidden = false;
+        renderTable();
+        setStatus(
+          "Showing " + items.length + " open PR" + (items.length === 1 ? "" : "s") +
+          " from " + queriedRepos + " repos" +
+          (skippedRepos ? " (" + skippedRepos + " filtered repos were not queried)" : "") +
+          "."
+        );
+      } catch (err) {
+        setStatus(err.message || String(err), true);
+      } finally {
+        loadBtn.disabled = false;
+      }
+    }
+
+    loadBtn.addEventListener("click", load);
+    orgEl.addEventListener("keydown", (e) => { if (e.key === "Enter") load(); });
+    tokenEl.addEventListener("keydown", (e) => { if (e.key === "Enter") load(); });
+    qEl.addEventListener("input", renderTable);
+    repoEl.addEventListener("change", renderTable);
+    authorEl.addEventListener("change", renderTable);
+    clearBtn.addEventListener("click", () => {
+      tokenEl.value = "";
+      localStorage.removeItem(STORAGE_TOKEN);
+      setStatus("Token cleared from this browser.");
+    });
+
+    if (orgEl.value) load();
+  </script>
+</body>
+</html>
